@@ -4,11 +4,13 @@ go 1.24.0
 
 require (
 	github.com/lib/pq v1.10.9
-	github.com/zhiyunliu/glue v0.8.5
+	github.com/zhiyunliu/glue v0.8.6-0.20260101085230-79ff6695ad69
 	github.com/zhiyunliu/golibs v0.3.17 // indirect
 	github.com/zhiyunliu/stack v1.10.1 // indirect
 	github.com/zhiyunliu/xbinding v0.1.4 // indirect
 )
+
+//replace github.com/zhiyunliu/glue => ../glue
 
 require (
 	github.com/emirpasic/gods/v2 v2.0.0-alpha // indirect
