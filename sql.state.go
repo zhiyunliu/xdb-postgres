@@ -53,19 +53,20 @@ func NewStatePool(placeHolder xdb.Placeholder) xdb.SqlStatePool {
 
 type postgresSqlTemplateCache struct {
 	sql   string
-	names []string
+	names []xdb.ExprName
 }
 
 func (stc *postgresSqlTemplateCache) Build(state xdb.SqlState, input xdb.DBParam) (sql string, err error) {
-	for _, name := range stc.names {
-		value, err := input.GetVal(name)
+	for _, expr := range stc.names {
+		value, err := input.GetVal(expr.GetPropName())
 		if err != nil {
 			return "", err
 		}
+
 		if !checkValueIsArray(value) {
-			state.AppendExpr(name, value)
+			state.AppendExpr(expr, value)
 		} else {
-			state.AppendExpr(name, pq.Array(value))
+			state.AppendExpr(expr, pq.Array(value))
 		}
 	}
 	return stc.sql, nil

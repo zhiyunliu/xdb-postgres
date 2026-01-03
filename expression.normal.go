@@ -2,46 +2,10 @@ package postgres
 
 import (
 	"reflect"
-	"strings"
 
 	"github.com/lib/pq"
 	"github.com/zhiyunliu/glue/xdb"
 )
-
-var _ xdb.ExpressionBuildCallback = normalExpressBuildCallback
-
-func normalExpressBuildCallback(item xdb.ExpressionValuer, state xdb.SqlState, param xdb.DBParam) (expression string, err xdb.MissError) {
-	var (
-		phName   string
-		propName = item.GetPropName()
-	)
-	value, err := param.GetVal(propName)
-	if err != nil {
-		//没有值，并且是可空
-		if item.GetSymbol().IsDynamic() {
-			return "", nil
-		}
-		return
-	}
-	err = nil
-	if xdb.CheckIsNil(value) && item.GetSymbol().IsDynamic() {
-		return
-	}
-
-	if !strings.EqualFold(item.GetSymbol().Name(), xdb.SymbolReplace) {
-		if !checkValueIsArray(value) {
-			phName = state.AppendExpr(propName, value)
-		} else {
-			phName = state.AppendExpr(propName, pq.Array(value))
-		}
-	}
-	operCallback, ok := item.GetOperatorCallback()
-	if !ok {
-		err = xdb.NewMissOperError(item.GetOper())
-		return
-	}
-	return operCallback(item, param, phName, value), nil
-}
 
 func checkValueIsArray(value any) bool {
 	refVal := reflect.ValueOf(value)
@@ -50,4 +14,26 @@ func checkValueIsArray(value any) bool {
 		return false
 	}
 	return true
+}
+
+func buildNormalOperators(normalMatcher xdb.ExpressionMatcher) {
+	operatorMap := normalMatcher.GetOperatorMap()
+	normalize := func(exprName xdb.ExprName, param xdb.DBParam, value any) (newVal any, err xdb.MissError) {
+		if !checkValueIsArray(value) {
+			return value, nil
+		}
+		return pq.Array(value), nil
+	}
+	newOperList := []xdb.Operator{}
+
+	operatorList := []string{"@", "&", "|"}
+	for _, oper := range operatorList {
+		operator, ok := operatorMap.Load(oper)
+		if !ok {
+			continue
+		}
+		newOperList = append(newOperList, xdb.NewOperator(oper, operator.Callback, normalize))
+	}
+	normalMatcher.GetOperatorMap().Store(newOperList...)
+	return
 }

@@ -36,19 +36,23 @@ func (s *postgresResolver) Resolve(connName string, setting config.Config, opts 
 func init() {
 	symbols := expression.DefaultSymbols
 
+	normalMatcher := expression.NewNormalExpressionMatcher(symbols)
+
 	tplMatcher := xdb.NewTemplateMatcher(
-		expression.NewNormalExpressionMatcher(symbols, xdb.WithBuildCallback(normalExpressBuildCallback)),
+		normalMatcher,
 		expression.NewCompareExpressionMatcher(symbols),
-		expression.NewLikeExpressionMatcher(symbols, xdb.WithBuildCallback(likeExpressBuildCallback), xdb.WithOperator(buildLikeOperators()...)),
+		expression.NewLikeExpressionMatcher(symbols, xdb.WithOperator(buildLikeOperators()...)),
 		expression.NewInExpressionMatcher(symbols, xdb.WithBuildCallback(inExpressBuildCallback), xdb.WithOperator(buildInOperators()...)),
 	)
+
+	buildNormalOperators(normalMatcher)
 
 	tplstmpProcessor := xdb.NewStmtDbTypeProcessor(DefaultDbTypeHandler...)
 
 	xdb.Register(&postgresResolver{name: Proto})
 
 	seqTemplate := tpl.NewSeq(Proto, ArgumentPrefix, tplMatcher, tplstmpProcessor)
-	seqTemplate.StatePool = NewStatePool(seqTemplate.Placeholder())
+	//seqTemplate.StatePool = NewStatePool(seqTemplate.Placeholder())
 
 	_ = xdb.RegistTemplate(seqTemplate)
 }

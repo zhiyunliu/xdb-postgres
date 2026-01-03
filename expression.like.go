@@ -7,36 +7,6 @@ import (
 	"github.com/zhiyunliu/glue/xdb"
 )
 
-var _ xdb.ExpressionBuildCallback = likeExpressBuildCallback
-
-func likeExpressBuildCallback(item xdb.ExpressionValuer, state xdb.SqlState, param xdb.DBParam) (expression string, err xdb.MissError) {
-
-	propName := item.GetPropName()
-	value, err := param.GetVal(propName)
-	if err != nil {
-		//没有值，并且是可空
-		if item.GetSymbol().IsDynamic() {
-			return "", nil
-		}
-		return
-	}
-	err = nil
-	if xdb.CheckIsNil(value) && item.GetSymbol().IsDynamic() {
-		return
-	}
-
-	value = escapeLikeValue(item.GetOper(), value)
-
-	phName := state.AppendExpr(propName, value)
-
-	operCallback, ok := item.GetOperatorCallback()
-	if !ok {
-		err = xdb.NewMissOperError(item.GetOper())
-		return
-	}
-	return operCallback(item, param, phName, value), nil
-}
-
 func escapeLikeValue(oper string, value any) string {
 	val := fmt.Sprint(value)
 	val = escapeLike(val)
@@ -67,16 +37,20 @@ func buildLikeOperators() []xdb.Operator {
 		return fmt.Sprintf("%s %s not like %s", item.GetSymbol().Concat(), item.GetFullfield(), phName)
 	}
 
-	operList := []xdb.Operator{
-		xdb.NewOperator("like", likecallback),
-		xdb.NewOperator("%like", likecallback),
-		xdb.NewOperator("like%", likecallback),
-		xdb.NewOperator("%like%", likecallback),
+	normalize := func(exprName xdb.ExprName, param xdb.DBParam, value any) (newVal any, err xdb.MissError) {
+		return escapeLikeValue(exprName.GetOper(), value), nil
+	}
 
-		xdb.NewOperator("notlike", notlikecallback),
-		xdb.NewOperator("%notlike", notlikecallback),
-		xdb.NewOperator("notlike%", notlikecallback),
-		xdb.NewOperator("%notlike%", notlikecallback),
+	operList := []xdb.Operator{
+		xdb.NewOperator("like", likecallback, normalize),
+		xdb.NewOperator("%like", likecallback, normalize),
+		xdb.NewOperator("like%", likecallback, normalize),
+		xdb.NewOperator("%like%", likecallback, normalize),
+
+		xdb.NewOperator("notlike", notlikecallback, normalize),
+		xdb.NewOperator("%notlike", notlikecallback, normalize),
+		xdb.NewOperator("notlike%", notlikecallback, normalize),
+		xdb.NewOperator("%notlike%", notlikecallback, normalize),
 	}
 	return operList
 }
